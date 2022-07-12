@@ -1,24 +1,10 @@
 // Copyright Guy (Drakynfly) Lundvall. All Rights Reserved.
 
 #include "RestorationSubsystem.h"
-
+#include "SaveSystemInteropBase.h"
 #include "TimelinesSettings.h"
 
 DEFINE_LOG_CATEGORY(LogRestorationSubsystem)
-
-USaveSystemInterop::USaveSystemInterop()
-{
-}
-
-void USaveSystemInterop::OnSaveComplete()
-{
-	OnSaveCompleted.Broadcast();
-}
-
-void USaveSystemInterop::OnLoadComplete()
-{
-	OnLoadCompleted.Broadcast();
-}
 
 void URestorationSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -26,9 +12,8 @@ void URestorationSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 
 	UE_LOG(LogRestorationSubsystem, Log, TEXT("Restoration Subsystem Initialized"));
 
-
-	const TSubclassOf<USaveSystemInterop> InteropClass = GetDefault<UTimelinesSettings>()->BackendSystemClass
-															.TryLoadClass<USaveSystemInterop>();
+	const TSubclassOf<USaveSystemInteropBase> InteropClass = GetDefault<UTimelinesSettings>()->BackendSystemClass
+															.TryLoadClass<USaveSystemInteropBase>();
 
 	if (!InteropClass)
 	{
@@ -37,7 +22,7 @@ void URestorationSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 		return;
 	}
 
-	Backend = NewObject<USaveSystemInterop>(this, InteropClass);
+	Backend = NewObject<USaveSystemInteropBase>(this, InteropClass);
 	Backend->OnSaveCompleted.AddDynamic(this, &ThisClass::OnSaveComplete);
 	Backend->OnLoadCompleted.AddDynamic(this, &ThisClass::OnLoadComplete);
 

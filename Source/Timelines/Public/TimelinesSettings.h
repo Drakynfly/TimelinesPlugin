@@ -16,6 +16,6 @@ class TIMELINES_API UTimelinesSettings : public UDeveloperSettings
 
 public:
 	// This is the interop class that the Restoration Subsystem will use to interact with save files.
-	UPROPERTY(config, EditAnywhere, meta = (MetaClass = "SaveSystemInterop"), NoClear)
+	UPROPERTY(config, EditAnywhere, meta = (MetaClass = "SaveSystemInteropBase"), NoClear)
 	FSoftClassPath BackendSystemClass;
 };

@@ -3,82 +3,12 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "TimelinesSaveDataObject.h"
 #include "TimelinesStructs.h"
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "RestorationSubsystem.generated.h"
 
-UINTERFACE()
-class TIMELINES_API UTimelinesSaveDataObject : public UInterface
-{
-	GENERATED_BODY()
-};
-
-class TIMELINES_API ITimelinesSaveDataObject
-{
-	GENERATED_BODY()
-
-public:
-	virtual FTimelineGameKey GetGameKey() const = 0;
-	virtual void SetGameKey(const FTimelineGameKey& Key) = 0;
-	virtual FString GetSlotName() const = 0;
-	virtual bool SetupSlot(UObject* WorldContextObject) = 0;
-};
-
-
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FSaveSystemInteropEvent);
-
-UCLASS(Abstract)
-class TIMELINES_API USaveSystemInterop : public UObject
-{
-	GENERATED_BODY()
-
-	friend class URestorationSubsystem;
-
-public:
-	USaveSystemInterop();
-
-protected:
-	virtual ITimelinesSaveDataObject* GetObjectForSlot(const FString& SlotName)
-		PURE_VIRTUAL(USaveSystemInterop::GetObjectForSlot, return nullptr; )
-
-	template <typename TTimelinesSaveDataClass> TTimelinesSaveDataClass* GetObjectForSlotNative(const FString& SlotName)
-	{
-		static_assert(TPointerIsConvertibleFromTo<TTimelinesSaveDataClass, ITimelinesSaveDataObject>::Value, "'T' template parameter to GetObjectForSlot must be derived from ITimelinesSaveDataObject");
-		return Cast<TTimelinesSaveDataClass>(GetObjectForSlot(SlotName));
-	}
-
-	virtual TArray<FString> GetAllSlotsSorted() const
-		PURE_VIRTUAL(USaveSystemInterop::GetAllSlotsSorted, return TArray<FString>(); )
-
-	virtual FString GetCurrentSlot() const
-		PURE_VIRTUAL(USaveSystemInterop::GetCurrentSlot, return FString(); )
-
-	virtual ITimelinesSaveDataObject* CreateSlot(UObject* WorldContextObject, const FString& SlotName)
-	PURE_VIRTUAL(USaveSystemInterop::CreateSlot, return nullptr; )
-
-	// This function's implementation must call OnSaveComplete at some point.
-	virtual bool SaveSlot(UObject* WorldContextObject, const ITimelinesSaveDataObject* Slot)
-		PURE_VIRTUAL(USaveSystemInterop::SaveSlot, return false; )
-
-	// This function's implementation must call OnLoadComplete at some point.
-	virtual bool LoadSlot(UObject* WorldContextObject, const FString& SlotName)
-		PURE_VIRTUAL(USaveSystemInterop::WorldContextObject, return false; )
-
-	virtual bool DeleteSlot(const FString& SlotName)
-		PURE_VIRTUAL(USaveSystemInterop::DeleteSlot, return false; )
-
-	UFUNCTION()
-	virtual void OnSaveComplete();
-
-	UFUNCTION()
-	virtual void OnLoadComplete();
-
-	UPROPERTY(BlueprintAssignable, Category = "Save System Interop|Events")
-	FSaveSystemInteropEvent OnSaveCompleted;
-
-	UPROPERTY(BlueprintAssignable, Category = "Save System Interop|Events")
-	FSaveSystemInteropEvent OnLoadCompleted;
-};
+class USaveSystemInteropBase;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogRestorationSubsystem, Log, All)
 
@@ -157,7 +87,7 @@ protected:
 
 private:
 	UPROPERTY()
-	TObjectPtr<USaveSystemInterop> Backend;
+	TObjectPtr<USaveSystemInteropBase> Backend;
 
 	UPROPERTY()
 	FTimelineGameKey CurrentTimeline;
