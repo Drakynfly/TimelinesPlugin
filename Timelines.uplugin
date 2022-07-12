@@ -1,0 +1,24 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Timelines",
+	"Description": "Save slot manager",
+	"Category": "Save Data",
+	"CreatedBy": "Guy (Drakynfly) Lundvall",
+	"CreatedByURL": "",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"CanContainContent": true,
+	"IsBetaVersion": false,
+	"IsExperimentalVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "Timelines",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
