@@ -198,9 +198,9 @@ void URestorationSubsystem::SaveGame(UObject* WorldContextObject)
 	check(VersionList);
 
 	// Create new timeline point.
-	const FTimelinePointKey NewPoint = {FTimelinePointKey::NewKey()};
+	CurrentPoint = {FTimelinePointKey::NewKey()};
 
-	if (ITimelinesSaveDataObject* NewSaveData = Backend->CreateSlot(WorldContextObject, NewPoint.ToString()))
+	if (ITimelinesSaveDataObject* NewSaveData = Backend->CreateSlot(WorldContextObject, CurrentPoint.ToString()))
 	{
 		// Setup the save data with our existing meta-save.
 		NewSaveData->SetGameKey(CurrentTimeline);
@@ -212,23 +212,28 @@ void URestorationSubsystem::SaveGame(UObject* WorldContextObject)
 		}
 
 		// Record this in the version list and save.
-		VersionList->Versions.Insert(NewPoint, 0);
+		VersionList->Versions.Insert(CurrentPoint, 0);
 		Backend->SaveSlot(WorldContextObject, NewSaveData);
+	}
+	else
+	{
+		UE_LOG(LogRestorationSubsystem, Error, TEXT("Cancelling SaveGame: SetupSlot failed!"))
+		CurrentPoint = {FGuid()};
 	}
 }
 
-void URestorationSubsystem::LoadMostRecentVersionOfGame(UObject* WorldContextObject, const FTimelineGameKey& Key)
+void URestorationSubsystem::LoadMostRecentPointInTimeline(UObject* WorldContextObject, const FTimelineGameKey& Key)
 {
 	if (!IsValid(WorldContextObject))
 	{
-		UE_LOG(LogRestorationSubsystem, Error, TEXT("Cancelling LoadMostRecentVersionOfGame: Invalid WorldContextObject!"))
+		UE_LOG(LogRestorationSubsystem, Error, TEXT("Cancelling LoadMostRecentPointInTimeline: Invalid WorldContextObject!"))
 		return;
 	}
 
 	const int32 VersionIdx = SaveVersionLists.IndexOfByKey(Key);
 	if (VersionIdx == INDEX_NONE)
 	{
-		UE_LOG(LogRestorationSubsystem, Error, TEXT("Cancelling LoadMostRecentVersionOfGame: Invalid Game Key!"))
+		UE_LOG(LogRestorationSubsystem, Error, TEXT("Cancelling LoadMostRecentPointInTimeline: Invalid Game Key!"))
 		return;
 	}
 
@@ -237,21 +242,22 @@ void URestorationSubsystem::LoadMostRecentVersionOfGame(UObject* WorldContextObj
 
 	if (PointToRestore.IsValid())
 	{
-		UE_LOG(LogRestorationSubsystem, Error, TEXT("Cancelling LoadMostRecentVersionOfGame: Invalid PointToRestore!"))
+		UE_LOG(LogRestorationSubsystem, Error, TEXT("Cancelling LoadMostRecentPointInTimeline: Invalid PointToRestore!"))
         return;
 	}
 
 	if (Backend->LoadSlot(WorldContextObject, PointToRestore.ToString()))
 	{
 		CurrentTimeline = Key;
+		CurrentPoint = PointToRestore;
 	}
 }
 
-void URestorationSubsystem::LoadVersionOfGame(UObject* WorldContextObject, const FTimelineAnchor& Anchor)
+void URestorationSubsystem::LoadPointFromAnchor(UObject* WorldContextObject, const FTimelineAnchor& Anchor)
 {
 	if (!IsValid(WorldContextObject))
 	{
-		UE_LOG(LogRestorationSubsystem, Error, TEXT("Cancelling LoadVersionOfGame: Invalid WorldContextObject!"))
+		UE_LOG(LogRestorationSubsystem, Error, TEXT("Cancelling LoadPointFromAnchor: Invalid WorldContextObject!"))
 		return;
 	}
 
@@ -259,27 +265,26 @@ void URestorationSubsystem::LoadVersionOfGame(UObject* WorldContextObject, const
 	const int32 VersionIdx = SaveVersionLists.IndexOfByKey(Anchor.Game);
 	if (VersionIdx == INDEX_NONE)
 	{
-		UE_LOG(LogRestorationSubsystem, Error, TEXT("Cancelling LoadVersionOfGame: Invalid Anchor Game Key!"))
+		UE_LOG(LogRestorationSubsystem, Error, TEXT("Cancelling LoadPointFromAnchor: Invalid Anchor Game Key!"))
 		return;
 	}
 
 	if (!SaveVersionLists[VersionIdx].Versions.Contains(Anchor.Point))
 	{
-		UE_LOG(LogRestorationSubsystem, Error, TEXT("Cancelling LoadVersionOfGame: Invalid Anchor Point!"))
+		UE_LOG(LogRestorationSubsystem, Error, TEXT("Cancelling LoadPointFromAnchor: Invalid Anchor Point!"))
 		return;
 	}
 
-	const FTimelinePointKey PointToRestore = Anchor.Point;
-
-	if (!PointToRestore.IsValid())
+	if (!Anchor.Point.IsValid())
 	{
-		UE_LOG(LogRestorationSubsystem, Error, TEXT("Cancelling LoadVersionOfGame: Invalid PointToRestore!"))
+		UE_LOG(LogRestorationSubsystem, Error, TEXT("Cancelling LoadPointFromAnchor: Invalid PointToRestore!"))
 		return;
 	}
 
-	if (Backend->LoadSlot(WorldContextObject, PointToRestore.ToString()))
+	if (Backend->LoadSlot(WorldContextObject, Anchor.Point.ToString()))
 	{
 		CurrentTimeline = Anchor.Game;
+		CurrentPoint = Anchor.Point;
 	}
 }
 

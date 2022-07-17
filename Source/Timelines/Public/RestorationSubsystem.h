@@ -34,6 +34,9 @@ public:
 	FTimelineGameKey GetActiveSaveKey() const { return CurrentTimeline; }
 
 	UFUNCTION(BlueprintCallable, Category = "Restoration Subsystem")
+	FTimelineAnchor GetAnchor() { return { CurrentTimeline, CurrentPoint }; }
+
+	UFUNCTION(BlueprintCallable, Category = "Restoration Subsystem")
 	void GetAllMostRecentSlotVersions(TArray<TScriptInterface<ITimelinesSaveDataObject>>& OutSaveData);
 
 	UFUNCTION(BlueprintCallable, Category = "Restoration Subsystem")
@@ -54,10 +57,10 @@ public:
 	void SaveGame(UObject* WorldContextObject);
 
 	UFUNCTION(BlueprintCallable, Category = "Restoration Subsystem", meta = (WorldContext = "WorldContextObject"))
-	void LoadMostRecentVersionOfGame(UObject* WorldContextObject, const FTimelineGameKey& Key);
+	void LoadMostRecentPointInTimeline(UObject* WorldContextObject, const FTimelineGameKey& Key);
 
 	UFUNCTION(BlueprintCallable, Category = "Restoration Subsystem", meta = (WorldContext = "WorldContextObject"))
-	void LoadVersionOfGame(UObject* WorldContextObject, const FTimelineAnchor& Anchor);
+	void LoadPointFromAnchor(UObject* WorldContextObject, const FTimelineAnchor& Anchor);
 
 	/** Deletes all save slots for a game */
 	UFUNCTION(BlueprintCallable, Category = "Restoration Subsystem")
@@ -91,4 +94,7 @@ private:
 
 	UPROPERTY()
 	FTimelineGameKey CurrentTimeline;
+
+	UPROPERTY()
+	FTimelinePointKey CurrentPoint;
 };
