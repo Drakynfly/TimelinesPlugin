@@ -2,7 +2,6 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
 #include "RestorationSubsystem.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "TimelinesStructs.h"
