@@ -34,7 +34,10 @@ public:
 	FTimelineGameKey GetActiveSaveKey() const { return CurrentTimeline; }
 
 	UFUNCTION(BlueprintCallable, Category = "Restoration Subsystem")
-	FTimelineAnchor GetAnchor() { return { CurrentTimeline, CurrentPoint }; }
+	FTimelineAnchor GetAnchor() const { return { CurrentTimeline, CurrentPoint }; }
+
+	UFUNCTION(BlueprintCallable, Category = "Restoration Subsystem")
+	int32 GetNumTimelines() const { return SaveVersionLists.Num(); }
 
 	UFUNCTION(BlueprintCallable, Category = "Restoration Subsystem")
 	void GetAllMostRecentSlotVersions(TArray<TScriptInterface<ITimelinesSaveDataObject>>& OutSaveData);
