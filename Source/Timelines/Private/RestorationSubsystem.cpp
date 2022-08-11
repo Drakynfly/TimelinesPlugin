@@ -2,6 +2,8 @@
 
 #include "RestorationSubsystem.h"
 #include "SaveSystemInteropBase.h"
+#include "TimelinesLoadExec.h"
+#include "TimelinesSaveExec.h"
 #include "TimelinesSettings.h"
 
 DEFINE_LOG_CATEGORY(LogRestorationSubsystem)
@@ -12,19 +14,30 @@ void URestorationSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 
 	UE_LOG(LogRestorationSubsystem, Log, TEXT("Restoration Subsystem Initialized"));
 
-	const TSubclassOf<USaveSystemInteropBase> InteropClass = GetDefault<UTimelinesSettings>()->BackendSystemClass
-															.TryLoadClass<USaveSystemInteropBase>();
+	const auto InteropClass = GetDefault<UTimelinesSettings>()->BackendSystemClass.TryLoadClass<USaveSystemInteropBase>();
 
-	if (!InteropClass)
+	SaveExecClass = GetDefault<UTimelinesSettings>()->SaveExecClass.TryLoadClass<UTimelinesSaveExec>();
+	LoadExecClass = GetDefault<UTimelinesSettings>()->LoadExecClass.TryLoadClass<UTimelinesLoadExec>();
+
+	if (!ensureMsgf(InteropClass,
+		TEXT("An interop class must be provided for Restoration Subsystem to function. Please check project settings!")))
 	{
-		UE_LOG(LogRestorationSubsystem, Error,
-			TEXT("An interop class must be provided for Restoration Subsystem to function. Please check project settings!"))
+		return;
+	}
+
+	if (!ensureMsgf(SaveExecClass,
+		TEXT("A save exec class must be provided for Restoration Subsystem to function. Please check project settings!")))
+	{
+		return;
+	}
+
+	if (!ensureMsgf(LoadExecClass,
+		TEXT("A load exec class must be provided for Restoration Subsystem to function. Please check project settings!")))
+	{
 		return;
 	}
 
 	Backend = NewObject<USaveSystemInteropBase>(this, InteropClass);
-	Backend->OnSaveCompleted.AddDynamic(this, &ThisClass::OnSaveComplete);
-	Backend->OnLoadCompleted.AddDynamic(this, &ThisClass::OnLoadComplete);
 
 	// Cache all existing save slots and collate them into version lists.
 
@@ -75,6 +88,43 @@ TScriptInterface<ITimelinesSaveDataObject> URestorationSubsystem::GetTimelineObj
 {
 	ITimelinesSaveDataObject* Object = Backend->GetObjectForSlot(Point.ToString());
 	return Cast<UObject>(Object);
+}
+
+UTimelinesLoadExec* URestorationSubsystem::LoadAnchor_Impl(UObject* WorldContextObject, const FTimelineAnchor& Anchor, const bool StallRunning)
+{
+	if (State == LoadingInProgress)
+	{
+		UE_LOG(LogRestorationSubsystem, Warning, TEXT("Cancelling LoadAnchor_Impl: A load is already in progress!"))
+		return nullptr;
+	}
+
+	if (State == SavingInProgress)
+	{
+		UE_LOG(LogRestorationSubsystem, Warning, TEXT("Cancelling LoadAnchor_Impl: Cannot load while a save is in progress!"))
+		return nullptr;
+	}
+
+	State = LoadingInProgress;
+
+	UTimelinesLoadExec* LoadExec = NewObject<UTimelinesLoadExec>(this, LoadExecClass);
+
+	if (!ensureMsgf(LoadExec, TEXT("Cancelling LoadAnchor_Impl: Unable to create SaveExec object!")))
+	{
+		return nullptr;
+	}
+
+	FLoadExecContext Context;
+	Context.WorldContextObject = WorldContextObject;
+	Context.Backend = Backend;
+	Context.Anchor = Anchor;
+	Context.FinishedCallback.BindUObject(this, &ThisClass::OnLoadExecFinished);
+
+	if (!LoadExec->SetupLoadExec(Context, !StallRunning))
+	{
+		UE_LOG(LogRestorationSubsystem, Error, TEXT("Cancelling LoadAnchor_Impl: LoadExec::SetupSaveExec failed!"))
+	}
+
+	return LoadExec;
 }
 
 void URestorationSubsystem::GetAllMostRecentSlotVersions(TArray<TScriptInterface<ITimelinesSaveDataObject>>& OutSaveData)
@@ -160,105 +210,100 @@ void URestorationSubsystem::GetGameToContinue(FTimelineGameKey& GameKey)
 	}
 }
 
-void URestorationSubsystem::SaveGame(UObject* WorldContextObject)
+UTimelinesSaveExec* URestorationSubsystem::SaveGame(UObject* WorldContextObject, const bool StallRunning)
 {
 	if (!IsValid(WorldContextObject))
 	{
 		UE_LOG(LogRestorationSubsystem, Error, TEXT("Cancelling SaveGame: Invalid WorldContextObject!"))
-		return;
+		return nullptr;
 	}
 
-	FTimelineSaveList* VersionList = nullptr;
-
-	// If the subsystem has no CurrentTimeline, then we have been loaded into a brand new game. Create a key for it.
-	if (!CurrentTimeline.IsValid())
+	if (State == LoadingInProgress)
 	{
-		CurrentTimeline = {FTimelineGameKey::NewKey()};
-		VersionList = &SaveVersionLists.Add_GetRef({CurrentTimeline});
-	}
-	// Otherwise, there should be a VersionList with the CurrentTimeline
-	else
-	{
-		for (FTimelineSaveList& SaveVersionList : SaveVersionLists)
-		{
-			if (SaveVersionList.GameKey == CurrentTimeline)
-			{
-				VersionList = &SaveVersionList;
-			}
-		}
+		UE_LOG(LogRestorationSubsystem, Warning, TEXT("Cancelling SaveGame: Cannot save while a load is in progress!"))
+		return nullptr;
 	}
 
-	if (VersionList == nullptr)
+	if (State == SavingInProgress)
 	{
-		UE_LOG(LogRestorationSubsystem, Error, TEXT("Cancelling SaveGame: Cannot find version list!"))
-		return;
+		UE_LOG(LogRestorationSubsystem, Warning, TEXT("Cancelling SaveGame: A save is already in progress!"))
+		return nullptr;
 	}
 
-	check(CurrentTimeline.IsValid());
-	check(VersionList);
+	State = SavingInProgress;
+
+	UTimelinesSaveExec* SaveExec = NewObject<UTimelinesSaveExec>(this, SaveExecClass);
+
+	if (!ensureMsgf(SaveExec, TEXT("Cancelling SaveGame: Unable to create SaveExec object!")))
+	{
+		return nullptr;
+	}
 
 	// Create new timeline point.
-	CurrentPoint = {FTimelinePointKey::NewKey()};
+	const auto NewPoint = FTimelinePointKey{FTimelinePointKey::NewKey()};
 
-	if (ITimelinesSaveDataObject* NewSaveData = Backend->CreateSlot(WorldContextObject, CurrentPoint.ToString()))
+	FSaveExecContext Context;
+	Context.WorldContextObject = WorldContextObject;
+	Context.Backend = Backend;
+	Context.Anchor = {FTimelineGameKey::NewKey(), NewPoint};
+	Context.FinishedCallback.BindUObject(this, &ThisClass::OnSaveExecFinished);
+
+	if (!SaveExec->SetupSaveExec(Context, !StallRunning))
 	{
-		// Setup the save data with our existing meta-save.
-		NewSaveData->SetGameKey(CurrentTimeline);
-
-		if (!NewSaveData->SetupSlot(WorldContextObject))
-		{
-			UE_LOG(LogRestorationSubsystem, Error, TEXT("Cancelling SaveGame: SetupSlot failed!"))
-			return;
-		}
-
-		// Record this in the version list and save.
-		VersionList->Versions.Insert(CurrentPoint, 0);
-		Backend->SaveSlot(WorldContextObject, NewSaveData);
+		UE_LOG(LogRestorationSubsystem, Error, TEXT("Cancelling SaveGame: SaveExec::SetupSaveExec failed!"))
 	}
-	else
-	{
-		UE_LOG(LogRestorationSubsystem, Error, TEXT("Cancelling SaveGame: SetupSlot failed!"))
-		CurrentPoint = {FGuid()};
-	}
+
+	return SaveExec;
 }
 
-void URestorationSubsystem::LoadMostRecentPointInTimeline(UObject* WorldContextObject, const FTimelineGameKey& Key)
+UTimelinesLoadExec* URestorationSubsystem::LoadMostRecentPointInTimeline(UObject* WorldContextObject,
+																		 const FTimelineGameKey& Key, bool StallRunning)
 {
 	if (!IsValid(WorldContextObject))
 	{
 		UE_LOG(LogRestorationSubsystem, Error, TEXT("Cancelling LoadMostRecentPointInTimeline: Invalid WorldContextObject!"))
-		return;
+		return nullptr;
 	}
 
-	const int32 VersionIdx = SaveVersionLists.IndexOfByKey(Key);
-	if (VersionIdx == INDEX_NONE)
+	if (!Key.IsValid())
+	{
+		UE_LOG(LogRestorationSubsystem, Error, TEXT("Cancelling LoadPointFromAnchor: Invalid PointToRestore!"))
+		return nullptr;
+	}
+
+	const auto VersionList = SaveVersionLists.FindByKey(Key);
+
+	if (VersionList == nullptr)
 	{
 		UE_LOG(LogRestorationSubsystem, Error, TEXT("Cancelling LoadMostRecentPointInTimeline: Invalid Game Key!"))
-		return;
+		return nullptr;
 	}
 
 	// Grab the most recent version
-	const FTimelinePointKey PointToRestore = SaveVersionLists[VersionIdx].MostRecent();
+	const FTimelinePointKey PointToRestore = VersionList->MostRecent();
 
-	if (PointToRestore.IsValid())
+	if (!PointToRestore.IsValid())
 	{
 		UE_LOG(LogRestorationSubsystem, Error, TEXT("Cancelling LoadMostRecentPointInTimeline: Invalid PointToRestore!"))
-        return;
+        return nullptr;
 	}
 
-	if (Backend->LoadSlot(WorldContextObject, PointToRestore.ToString()))
-	{
-		CurrentTimeline = Key;
-		CurrentPoint = PointToRestore;
-	}
+	return LoadAnchor_Impl(WorldContextObject, {Key, PointToRestore}, StallRunning);
 }
 
-void URestorationSubsystem::LoadPointFromAnchor(UObject* WorldContextObject, const FTimelineAnchor& Anchor)
+UTimelinesLoadExec* URestorationSubsystem::LoadPointFromAnchor(UObject* WorldContextObject,
+															   const FTimelineAnchor& Anchor, bool StallRunning)
 {
 	if (!IsValid(WorldContextObject))
 	{
 		UE_LOG(LogRestorationSubsystem, Error, TEXT("Cancelling LoadPointFromAnchor: Invalid WorldContextObject!"))
-		return;
+		return nullptr;
+	}
+
+	if (!Anchor.IsValid())
+	{
+		UE_LOG(LogRestorationSubsystem, Error, TEXT("Cancelling LoadPointFromAnchor: Invalid Anchor!"))
+		return nullptr;
 	}
 
 	// Ensure this GameKey and Version pair are valid.
@@ -266,26 +311,16 @@ void URestorationSubsystem::LoadPointFromAnchor(UObject* WorldContextObject, con
 	if (VersionIdx == INDEX_NONE)
 	{
 		UE_LOG(LogRestorationSubsystem, Error, TEXT("Cancelling LoadPointFromAnchor: Invalid Anchor Game Key!"))
-		return;
+		return nullptr;
 	}
 
 	if (!SaveVersionLists[VersionIdx].Versions.Contains(Anchor.Point))
 	{
 		UE_LOG(LogRestorationSubsystem, Error, TEXT("Cancelling LoadPointFromAnchor: Invalid Anchor Point!"))
-		return;
+		return nullptr;
 	}
 
-	if (!Anchor.Point.IsValid())
-	{
-		UE_LOG(LogRestorationSubsystem, Error, TEXT("Cancelling LoadPointFromAnchor: Invalid PointToRestore!"))
-		return;
-	}
-
-	if (Backend->LoadSlot(WorldContextObject, Anchor.Point.ToString()))
-	{
-		CurrentTimeline = Anchor.Game;
-		CurrentPoint = Anchor.Point;
-	}
+	return LoadAnchor_Impl(WorldContextObject, Anchor, StallRunning);
 }
 
 void URestorationSubsystem::DeleteAllVersionsOfGame(const FTimelineGameKey& Key)
@@ -336,12 +371,73 @@ void URestorationSubsystem::DeletePoint(const FTimelinePointKey& Point)
 	}
 }
 
-void URestorationSubsystem::OnSaveComplete()
+void URestorationSubsystem::OnSaveExecFinished(const bool Success, const FTimelineAnchor Anchor)
 {
-	OnSaveCompleted.Broadcast();
+	check(State == SavingInProgress);
+	check(Anchor.IsValid());
+
+	if (Success)
+	{
+		// Record this save in the version list, and set it as the currently active save.
+
+		FTimelineSaveList* VersionList;
+
+		// Try to find a VersionList with the CurrentTimeline
+		if (CurrentTimeline.IsValid() && CurrentTimeline == Anchor.Game)
+		{
+			VersionList = SaveVersionLists.FindByKey(Anchor.Game);
+		}
+		// If the subsystem has no CurrentTimeline, then we have been loaded into a brand new game. Create a list for it.
+		else
+		{
+			CurrentTimeline = Anchor.Game;
+			VersionList = &SaveVersionLists.Add_GetRef({CurrentTimeline});
+		}
+
+		check(VersionList);
+
+		CurrentPoint = VersionList->Versions.Insert_GetRef(Anchor.Point, 0);
+
+		State = Loaded; // Return the state to Loaded, as the game does now exist connected to a save state.
+
+		OnSaveCompleted.Broadcast();
+	}
+	else
+	{
+		if (CurrentPoint.IsValid())
+		{
+			State = Loaded;
+		}
+		else
+		{
+			State = Unloaded;
+		}
+	}
 }
 
-void URestorationSubsystem::OnLoadComplete()
+void URestorationSubsystem::OnLoadExecFinished(const bool Success, const FTimelineAnchor Anchor)
 {
-	OnLoadCompleted.Broadcast();
+	check(State == LoadingInProgress);
+	check(Anchor.IsValid());
+
+	if (Success)
+	{
+		CurrentTimeline = Anchor.Game;
+		CurrentPoint = Anchor.Point;
+
+		State = Loaded;
+
+		OnLoadCompleted.Broadcast();
+	}
+	else
+	{
+		if (CurrentPoint.IsValid())
+		{
+			State = Loaded;
+		}
+		else
+		{
+			State = Unloaded;
+		}
+	}
 }

@@ -8,10 +8,20 @@
 #include "RestorationSubsystem.generated.h"
 
 class USaveSystemInteropBase;
+class UTimelinesSaveExec;
+class UTimelinesLoadExec;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogRestorationSubsystem, Log, All)
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FRestorationSubsystemEvent);
+
+enum ERestorationSubsystemState
+{
+	Unloaded,
+	LoadingInProgress,
+	Loaded,
+	SavingInProgress
+};
 
 /**
  * "Restoration" is the global save slot manager that wraps around a backend to provide save slot versioning.
@@ -27,6 +37,9 @@ public:
 
 protected:
 	TScriptInterface<ITimelinesSaveDataObject> GetTimelineObject(const FTimelinePointKey& Point) const;
+
+private:
+	UTimelinesLoadExec* LoadAnchor_Impl(UObject* WorldContextObject, const FTimelineAnchor& Anchor, bool StallRunning);
 
 public:
 	UFUNCTION(BlueprintCallable, Category = "Restoration Subsystem")
@@ -56,13 +69,13 @@ public:
 	void GetGameToContinue(FTimelineGameKey& GameKey);
 
 	UFUNCTION(BlueprintCallable, Category = "Restoration Subsystem", meta = (WorldContext = "WorldContextObject"))
-	void SaveGame(UObject* WorldContextObject);
+	UTimelinesSaveExec* SaveGame(UObject* WorldContextObject, bool StallRunning = false);
 
 	UFUNCTION(BlueprintCallable, Category = "Restoration Subsystem", meta = (WorldContext = "WorldContextObject"))
-	void LoadMostRecentPointInTimeline(UObject* WorldContextObject, const FTimelineGameKey& Key);
+	UTimelinesLoadExec* LoadMostRecentPointInTimeline(UObject* WorldContextObject, const FTimelineGameKey& Key, bool StallRunning = false);
 
 	UFUNCTION(BlueprintCallable, Category = "Restoration Subsystem", meta = (WorldContext = "WorldContextObject"))
-	void LoadPointFromAnchor(UObject* WorldContextObject, const FTimelineAnchor& Anchor);
+	UTimelinesLoadExec* LoadPointFromAnchor(UObject* WorldContextObject, const FTimelineAnchor& Anchor, bool StallRunning = false);
 
 	/** Deletes all save slots for a game */
 	UFUNCTION(BlueprintCallable, Category = "Restoration Subsystem")
@@ -73,11 +86,8 @@ public:
 	void DeletePoint(const FTimelinePointKey& Point);
 
 protected:
-	UFUNCTION()
-	void OnSaveComplete();
-
-	UFUNCTION()
-	void OnLoadComplete();
+	void OnSaveExecFinished(bool Success, FTimelineAnchor Anchor);
+	void OnLoadExecFinished(bool Success, FTimelineAnchor Anchor);
 
 public:
 	UPROPERTY(BlueprintAssignable, Category = "Restoration Subsystem|Events")
@@ -99,4 +109,10 @@ private:
 
 	UPROPERTY()
 	FTimelinePointKey CurrentPoint;
+
+	TSubclassOf<UTimelinesSaveExec> SaveExecClass;
+
+	TSubclassOf<UTimelinesLoadExec> LoadExecClass;
+
+	ERestorationSubsystemState State;
 };

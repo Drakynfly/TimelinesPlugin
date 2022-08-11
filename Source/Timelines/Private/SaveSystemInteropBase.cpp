@@ -8,10 +8,10 @@ USaveSystemInteropBase::USaveSystemInteropBase()
 
 void USaveSystemInteropBase::OnSaveComplete()
 {
-	OnSaveCompleted.Broadcast();
+	OnSaveCompletedDelegate.Broadcast();
 }
 
 void USaveSystemInteropBase::OnLoadComplete()
 {
-	OnLoadCompleted.Broadcast();
+	OnLoadCompletedDelegate.Broadcast();
 }
