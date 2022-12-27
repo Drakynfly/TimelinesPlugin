@@ -3,7 +3,7 @@
 	"Version": 1,
 	"VersionName": "1.0",
 	"FriendlyName": "Timelines",
-	"Description": "Save slot manager",
+	"Description": "Save slot versioning manager",
 	"Category": "Save Data",
 	"CreatedBy": "Guy (Drakynfly) Lundvall",
 	"CreatedByURL": "",

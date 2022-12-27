@@ -70,7 +70,7 @@ void URestorationSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 		}
 	}
 
-	for (const auto& SlotNameList : SaveInfoMap)
+	for (auto&& SlotNameList : SaveInfoMap)
 	{
 		FTimelineSaveList NewList;
 		NewList.GameKey = SlotNameList.Key;
