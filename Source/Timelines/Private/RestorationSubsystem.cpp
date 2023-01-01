@@ -14,10 +14,10 @@ void URestorationSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 
 	UE_LOG(LogRestorationSubsystem, Log, TEXT("Restoration Subsystem Initialized"));
 
-	const auto InteropClass = GetDefault<UTimelinesSettings>()->BackendSystemClass.TryLoadClass<USaveSystemInteropBase>();
+	auto&& InteropClass = GetDefault<UTimelinesSettings>()->BackendSystemClass.LoadSynchronous();
 
-	SaveExecClass = GetDefault<UTimelinesSettings>()->SaveExecClass.TryLoadClass<UTimelinesSaveExec>();
-	LoadExecClass = GetDefault<UTimelinesSettings>()->LoadExecClass.TryLoadClass<UTimelinesLoadExec>();
+	SaveExecClass = GetDefault<UTimelinesSettings>()->SaveExecClass.LoadSynchronous();
+	LoadExecClass = GetDefault<UTimelinesSettings>()->LoadExecClass.LoadSynchronous();
 
 	if (!ensureMsgf(InteropClass,
 		TEXT("An interop class must be provided for Restoration Subsystem to function. Please check project settings!")))
@@ -240,7 +240,7 @@ UTimelinesSaveExec* URestorationSubsystem::SaveGame(UObject* WorldContextObject,
 	}
 
 	// Create new timeline point.
-	const auto NewPoint = FTimelinePointKey{FTimelinePointKey::NewKey()};
+	auto&& NewPoint = FTimelinePointKey{FTimelinePointKey::NewKey()};
 
 	FSaveExecContext Context;
 	Context.WorldContextObject = WorldContextObject;
@@ -271,7 +271,7 @@ UTimelinesLoadExec* URestorationSubsystem::LoadMostRecentPointInTimeline(UObject
 		return nullptr;
 	}
 
-	const auto VersionList = SaveVersionLists.FindByKey(Key);
+	auto&& VersionList = SaveVersionLists.FindByKey(Key);
 
 	if (VersionList == nullptr)
 	{

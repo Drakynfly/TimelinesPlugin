@@ -18,11 +18,11 @@ public:
 
 	// This is the interop class that the Restoration Subsystem will use to interact with save files.
 	UPROPERTY(config, EditAnywhere, meta = (MetaClass = "/Script/Timelines.SaveSystemInteropBase"), NoClear)
-	FSoftClassPath BackendSystemClass;
+	TSoftClassPtr<UObject> BackendSystemClass;
 
 	UPROPERTY(config, EditAnywhere, meta = (MetaClass = "/Script/Timelines.TimelinesSaveExec"), NoClear)
-	FSoftClassPath SaveExecClass;
+	TSoftClassPtr<UObject> SaveExecClass;
 
 	UPROPERTY(config, EditAnywhere, meta = (MetaClass = "/Script/Timelines.TimelinesLoadExec"), NoClear)
-	FSoftClassPath LoadExecClass;
+	TSoftClassPtr<UObject> LoadExecClass;
 };
