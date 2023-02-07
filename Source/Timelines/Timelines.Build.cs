@@ -7,7 +7,6 @@ public class Timelines : ModuleRules
 	public Timelines(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
-		bUseUnity = false;
 
 		PublicDependencyModuleNames.AddRange(
 			new[]

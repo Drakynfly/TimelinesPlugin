@@ -19,20 +19,20 @@ void URestorationSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	SaveExecClass = GetDefault<UTimelinesSettings>()->SaveExecClass.LoadSynchronous();
 	LoadExecClass = GetDefault<UTimelinesSettings>()->LoadExecClass.LoadSynchronous();
 
-	if (!ensureMsgf(InteropClass,
-		TEXT("An interop class must be provided for Restoration Subsystem to function. Please check project settings!")))
+	if (!ensureMsgf(InteropClass && InteropClass->IsChildOf<USaveSystemInteropBase>(),
+		TEXT("A valid interop class must be provided for Restoration Subsystem to function. Please check project settings!")))
 	{
 		return;
 	}
 
-	if (!ensureMsgf(SaveExecClass,
-		TEXT("A save exec class must be provided for Restoration Subsystem to function. Please check project settings!")))
+	if (!ensureMsgf(SaveExecClass && SaveExecClass->IsChildOf<UTimelinesSaveExec>(),
+		TEXT("A valid save exec class must be provided for Restoration Subsystem to function. Please check project settings!")))
 	{
 		return;
 	}
 
-	if (!ensureMsgf(LoadExecClass,
-		TEXT("A load exec class must be provided for Restoration Subsystem to function. Please check project settings!")))
+	if (!ensureMsgf(LoadExecClass && LoadExecClass->IsChildOf<UTimelinesLoadExec>(),
+		TEXT("A valid load exec class must be provided for Restoration Subsystem to function. Please check project settings!")))
 	{
 		return;
 	}
