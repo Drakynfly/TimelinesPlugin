@@ -174,14 +174,16 @@ bool URestorationSubsystem::CanContinueGame() const
 	// @todo this is not even remotely going to work with non EMS systems. This only works with EMS because, the current
 	// slot is persistent across game sessions. CurrentTimeline should be setup to do this, and be used instead
 
-	if (Backend->GetCurrentSlot().IsEmpty())
+	const FString SlotName = Backend->GetCurrentSlot();
+
+	if (SlotName.IsEmpty())
 	{
 		return false;
 	}
 
 	for (const FTimelineSaveList& SaveVersionList : SaveVersionLists)
 	{
-		if (SaveVersionList.MostRecent() == Backend->GetCurrentSlot())
+		if (SaveVersionList.MostRecent() == SlotName)
 		{
 			return true;
 		}
@@ -195,14 +197,16 @@ void URestorationSubsystem::GetGameToContinue(FTimelineGameKey& GameKey)
 	// @todo this is not even remotely going to work with non EMS systems. This only works with EMS because, the current
 	// slot is persistent across game sessions. CurrentTimeline should be setup to do this, and be used instead
 
-	if (Backend->GetCurrentSlot().IsEmpty())
+	const FString SlotName = Backend->GetCurrentSlot();
+
+	if (SlotName.IsEmpty())
 	{
 		return;
 	}
 
 	for (const FTimelineSaveList& SaveVersionList : SaveVersionLists)
 	{
-		if (SaveVersionList.MostRecent() == Backend->GetCurrentSlot())
+		if (SaveVersionList.MostRecent() == SlotName)
 		{
 			GameKey = SaveVersionList.GameKey;
 			return;
@@ -292,7 +296,7 @@ UTimelinesLoadExec* URestorationSubsystem::LoadMostRecentPointInTimeline(UObject
 }
 
 UTimelinesLoadExec* URestorationSubsystem::LoadPointFromAnchor(UObject* WorldContextObject,
-															   const FTimelineAnchor& Anchor, bool StallRunning)
+															   const FTimelineAnchor& Anchor, const bool StallRunning)
 {
 	if (!IsValid(WorldContextObject))
 	{
@@ -371,13 +375,14 @@ void URestorationSubsystem::DeletePoint(const FTimelinePointKey& Point)
 	}
 }
 
-void URestorationSubsystem::OnSaveExecFinished(const bool Success, const FTimelineAnchor Anchor)
+void URestorationSubsystem::OnSaveExecFinished(const bool Success, const FTimelineAnchor& Anchor)
 {
 	check(State == SavingInProgress);
-	check(Anchor.IsValid());
 
 	if (Success)
 	{
+		check(Anchor.IsValid());
+
 		// Record this save in the version list, and set it as the currently active save.
 
 		FTimelineSaveList* VersionList;
@@ -415,13 +420,14 @@ void URestorationSubsystem::OnSaveExecFinished(const bool Success, const FTimeli
 	}
 }
 
-void URestorationSubsystem::OnLoadExecFinished(const bool Success, const FTimelineAnchor Anchor)
+void URestorationSubsystem::OnLoadExecFinished(const bool Success, const FTimelineAnchor& Anchor)
 {
 	check(State == LoadingInProgress);
-	check(Anchor.IsValid());
 
 	if (Success)
 	{
+		check(Anchor.IsValid());
+
 		CurrentTimeline = Anchor.Game;
 		CurrentPoint = Anchor.Point;
 

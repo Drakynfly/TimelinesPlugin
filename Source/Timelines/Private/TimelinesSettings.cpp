@@ -10,3 +10,8 @@ UTimelinesSettings::UTimelinesSettings()
 	SaveExecClass = UTimelinesSaveExec_Default::StaticClass();
 	LoadExecClass = UTimelinesLoadExec_Default::StaticClass();
 }
+
+FName UTimelinesSettings::GetCategoryName() const
+{
+	return FApp::GetProjectName();
+}

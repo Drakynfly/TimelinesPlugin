@@ -4,8 +4,7 @@
 
 #include "TimelinesStructs.generated.h"
 
-// A meta-save key is a save slot identifier used by multiple save slots to mark them all as being "versions" of the
-// same game. This is how we achieve file versioning of save data.
+
 USTRUCT()
 struct FTimelineKey
 {
@@ -67,14 +66,15 @@ public:
 	}
 };
 
-// ID for a whole timeline
+// A timeline game key is a save slot identifier used by multiple save slots to mark them all as being "versions" of the
+// same game. This is how we achieve file versioning of save data.
 USTRUCT(BlueprintType)
 struct TIMELINES_API FTimelineGameKey : public FTimelineKey
 {
 	GENERATED_BODY()
 };
 
-// IF for a single point in a timeline
+// ID for a single point in a timeline
 USTRUCT(BlueprintType)
 struct TIMELINES_API FTimelinePointKey : public FTimelineKey
 {

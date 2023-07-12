@@ -14,5 +14,5 @@ FString UTimelinesStructUtilsLibrary::TimelineGameToString(const FTimelineGameKe
 
 FTimelineAnchor UTimelinesStructUtilsLibrary::GetAnchorFromObject(const TScriptInterface<ITimelinesSaveDataObject> Object)
 {
-	return FTimelineAnchor {Object->GetGameKey(), Object->GetSlotName()};
+	return FTimelineAnchor{Object->GetGameKey(), Object->GetSlotName()};
 }

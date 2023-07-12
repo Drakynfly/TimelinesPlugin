@@ -5,7 +5,7 @@
 #include "TimelinesStructs.h"
 #include "TimelinesSaveDataObject.generated.h"
 
-UINTERFACE()
+UINTERFACE(BlueprintType)
 class TIMELINES_API UTimelinesSaveDataObject : public UInterface
 {
 	GENERATED_BODY()

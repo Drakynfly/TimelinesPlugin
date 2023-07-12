@@ -14,7 +14,7 @@ struct TIMELINES_API FSaveExecContext
 	USaveSystemInteropBase* Backend;
 	FTimelineAnchor Anchor;
 
-	DECLARE_DELEGATE_TwoParams(FSaveExecFinished, bool /* Success */, FTimelineAnchor /* Anchor */)
+	using FSaveExecFinished = TDelegate<void(bool, const FTimelineAnchor&)>;
 	FSaveExecFinished FinishedCallback;
 
 	void Succeed();

@@ -14,7 +14,7 @@ struct TIMELINES_API FLoadExecContext
 	USaveSystemInteropBase* Backend;
 	FTimelineAnchor Anchor;
 
-	DECLARE_DELEGATE_TwoParams(FLoadExecFinished, bool /* Success */, FTimelineAnchor /* Anchor */)
+	using FLoadExecFinished = TDelegate<void(bool, const FTimelineAnchor&)>;
 	FLoadExecFinished FinishedCallback;
 
 	void Succeed();
@@ -53,5 +53,4 @@ public:
 
 protected:
 	void OnLoadComplete();
-
 };

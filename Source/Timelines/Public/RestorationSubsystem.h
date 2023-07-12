@@ -86,8 +86,8 @@ public:
 	void DeletePoint(const FTimelinePointKey& Point);
 
 protected:
-	void OnSaveExecFinished(bool Success, FTimelineAnchor Anchor);
-	void OnLoadExecFinished(bool Success, FTimelineAnchor Anchor);
+	void OnSaveExecFinished(bool Success, const FTimelineAnchor& Anchor);
+	void OnLoadExecFinished(bool Success, const FTimelineAnchor& Anchor);
 
 public:
 	UPROPERTY(BlueprintAssignable, Category = "Restoration Subsystem|Events")
