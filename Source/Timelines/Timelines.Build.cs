@@ -14,16 +14,16 @@ public class Timelines : ModuleRules
 				"Core",
 				"AIModule",
 				"UMG",
-				"DeveloperSettings"
+				"DeveloperSettings",
+				"StructUtils",
+				"FaerieSaveData"
 			});
 
 		PrivateDependencyModuleNames.AddRange(
 			new []
 			{
 				"CoreUObject",
-				"Engine",
-				"Slate",
-				"SlateCore"
+				"Engine"
 			});
 	}
 }

@@ -2,26 +2,18 @@
 
 #pragma once
 
-#include "TimelinesSaveDataObject.h"
 #include "TimelinesStructs.h"
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "RestorationSubsystem.generated.h"
 
 class USaveSystemInteropBase;
-class UTimelinesSaveExec;
-class UTimelinesLoadExec;
+class UFaerieSaveCommand;
+class UFaerieLoadCommand;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogRestorationSubsystem, Log, All)
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FRestorationSubsystemEvent);
-
-enum ERestorationSubsystemState
-{
-	Unloaded,
-	LoadingInProgress,
-	Loaded,
-	SavingInProgress
-};
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FTimelineSubsystemPointAdded, const FTimelineAnchor&, Anchor);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FTimelineSubsystemPointRemoved, const FTimelineGameKey&, Game);
 
 /**
  * "Restoration" is the global save slot manager that wraps around a backend to provide save slot versioning.
@@ -35,30 +27,24 @@ class TIMELINES_API URestorationSubsystem : public UGameInstanceSubsystem
 public:
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 
-protected:
-	TScriptInterface<ITimelinesSaveDataObject> GetTimelineObject(const FTimelinePointKey& Point) const;
-
-private:
-	UTimelinesLoadExec* LoadAnchor_Impl(UObject* WorldContextObject, const FTimelineAnchor& Anchor, bool StallRunning);
-
 public:
 	UFUNCTION(BlueprintCallable, Category = "Restoration Subsystem")
-	FTimelineGameKey GetActiveSaveKey() const { return CurrentTimeline; }
+	FTimelineGameKey GetActiveSaveKey() const { return CurrentAnchor.Game; }
 
 	UFUNCTION(BlueprintCallable, Category = "Restoration Subsystem")
-	FTimelineAnchor GetAnchor() const { return { CurrentTimeline, CurrentPoint }; }
+	FTimelineAnchor GetAnchor() const { return CurrentAnchor; }
 
 	UFUNCTION(BlueprintCallable, Category = "Restoration Subsystem")
 	int32 GetNumTimelines() const { return SaveVersionLists.Num(); }
 
 	UFUNCTION(BlueprintCallable, Category = "Restoration Subsystem")
-	void GetAllMostRecentSlotVersions(TArray<TScriptInterface<ITimelinesSaveDataObject>>& OutSaveData);
+	void GetAllTimelines(TArray<FTimelineGameKey>& GameKeys);
 
 	UFUNCTION(BlueprintCallable, Category = "Restoration Subsystem")
-	void GetMostRecentVersionOfGame(const FTimelineGameKey& GameKey, TScriptInterface<ITimelinesSaveDataObject>& OutSaveData);
+	void GetMostRecentVersionOfGame(const FTimelineGameKey& GameKey, FTimelineAnchor& Anchor);
 
 	UFUNCTION(BlueprintCallable, Category = "Restoration Subsystem")
-	void GetAllVersionsOfGame(const FTimelineGameKey& GameKey, TArray<TScriptInterface<ITimelinesSaveDataObject>>& OutSaveData);
+	void GetAllVersionsOfGame(const FTimelineGameKey& GameKey, TArray<FTimelineAnchor>& Anchors);
 
 	/** Is there a configured game to continue from */
 	UFUNCTION(BlueprintCallable, Category = "Restoration Subsystem")
@@ -66,16 +52,16 @@ public:
 
 	/** Get the last played game */
 	UFUNCTION(BlueprintCallable, Category = "Restoration Subsystem")
-	void GetGameToContinue(FTimelineGameKey& GameKey);
+	FTimelineGameKey GetGameToContinue() const;
 
 	UFUNCTION(BlueprintCallable, Category = "Restoration Subsystem", meta = (WorldContext = "WorldContextObject"))
-	UTimelinesSaveExec* SaveGame(UObject* WorldContextObject, bool StallRunning = false);
+	UFaerieSaveCommand* SaveGame(bool StallRunning = false);
 
 	UFUNCTION(BlueprintCallable, Category = "Restoration Subsystem", meta = (WorldContext = "WorldContextObject"))
-	UTimelinesLoadExec* LoadMostRecentPointInTimeline(UObject* WorldContextObject, const FTimelineGameKey& Key, bool StallRunning = false);
+	UFaerieLoadCommand* LoadMostRecentPointInTimeline(const FTimelineGameKey& Key, bool StallRunning = false);
 
 	UFUNCTION(BlueprintCallable, Category = "Restoration Subsystem", meta = (WorldContext = "WorldContextObject"))
-	UTimelinesLoadExec* LoadPointFromAnchor(UObject* WorldContextObject, const FTimelineAnchor& Anchor, bool StallRunning = false);
+	UFaerieLoadCommand* LoadPointFromAnchor(const FTimelineAnchor& Anchor, bool StallRunning = false);
 
 	/** Deletes all save slots for a game */
 	UFUNCTION(BlueprintCallable, Category = "Restoration Subsystem")
@@ -86,17 +72,18 @@ public:
 	void DeletePoint(const FTimelinePointKey& Point);
 
 protected:
-	void OnSaveExecFinished(bool Success, const FTimelineAnchor& Anchor);
-	void OnLoadExecFinished(bool Success, const FTimelineAnchor& Anchor);
+	void OnPreSaveExecRun(FStringView Slot);
+	void OnSaveExecFinished(FStringView Slot);
+	void OnLoadExecFinished(FStringView Slot);
 
-public:
-	UPROPERTY(BlueprintAssignable, Category = "Restoration Subsystem|Events")
-	FRestorationSubsystemEvent OnSaveCompleted;
+	// Broadcast when a new point is created on a timeline.
+	UPROPERTY(BlueprintAssignable, Category = "Events")
+	FTimelineSubsystemPointAdded OnTimelinePointAdded;
 
-	UPROPERTY(BlueprintAssignable, Category = "Restoration Subsystem|Events")
-	FRestorationSubsystemEvent OnLoadCompleted;
+	// Broadcast when a new point is created on a timeline.
+	UPROPERTY(BlueprintAssignable, Category = "Events")
+	FTimelineSubsystemPointRemoved OnTimelinePointRemoved;
 
-protected:
 	UPROPERTY()
 	TArray<FTimelineSaveList> SaveVersionLists;
 
@@ -104,15 +91,8 @@ private:
 	UPROPERTY()
 	TObjectPtr<USaveSystemInteropBase> Backend;
 
-	UPROPERTY()
-	FTimelineGameKey CurrentTimeline;
+	TWeakObjectPtr<class UFaerieLocalDataSubsystem> LocalData;
 
 	UPROPERTY()
-	FTimelinePointKey CurrentPoint;
-
-	TSubclassOf<UTimelinesSaveExec> SaveExecClass;
-
-	TSubclassOf<UTimelinesLoadExec> LoadExecClass;
-
-	ERestorationSubsystemState State;
+	FTimelineAnchor CurrentAnchor;
 };

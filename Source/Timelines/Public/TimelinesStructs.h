@@ -2,8 +2,9 @@
 
 #pragma once
 
-#include "TimelinesStructs.generated.h"
+#include "FaerieSaveSlotFragment.h"
 
+#include "TimelinesStructs.generated.h"
 
 USTRUCT()
 struct FTimelineKey
@@ -85,9 +86,14 @@ struct TIMELINES_API FTimelinePointKey : public FTimelineKey
  * An identifier for a point to restore the game to.
  */
 USTRUCT(BlueprintType)
-struct TIMELINES_API FTimelineAnchor
+struct TIMELINES_API FTimelineAnchor : public FFaerieSaveSlotInfoFragment
 {
 	GENERATED_BODY()
+
+	FTimelineAnchor() {}
+
+	FTimelineAnchor(const FTimelineGameKey Game, const FTimelinePointKey Point)
+	  : Game(Game), Point(Point) {}
 
 	UPROPERTY(BlueprintReadOnly, Category = "Timeline Anchor")
 	FTimelineGameKey Game;

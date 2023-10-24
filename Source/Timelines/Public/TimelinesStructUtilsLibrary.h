@@ -21,7 +21,4 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Timelines|Struct Utils", meta = (BlueprintAutocast, CompactNodeTitle = "->"))
 	static FString TimelineGameToString(const FTimelineGameKey& GameKey);
-
-	UFUNCTION(BlueprintPure, Category = "Timelines|Struct Utils")
-	static FTimelineAnchor GetAnchorFromObject(TScriptInterface<ITimelinesSaveDataObject> Object);
 };

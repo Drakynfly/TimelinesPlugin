@@ -2,7 +2,7 @@
 
 #include "TimelinesModule.h"
 
-#define LOCTEXT_NAMESPACE "FTimelinesModule"
+#define LOCTEXT_NAMESPACE "TimelinesModule"
 
 void FTimelinesModule::StartupModule()
 {
