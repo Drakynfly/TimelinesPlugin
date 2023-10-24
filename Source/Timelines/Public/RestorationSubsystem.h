@@ -84,15 +84,11 @@ protected:
 	UPROPERTY(BlueprintAssignable, Category = "Events")
 	FTimelineSubsystemPointRemoved OnTimelinePointRemoved;
 
-	UPROPERTY()
-	TArray<FTimelineSaveList> SaveVersionLists;
-
 private:
 	UPROPERTY()
 	TObjectPtr<USaveSystemInteropBase> Backend;
 
-	TWeakObjectPtr<class UFaerieLocalDataSubsystem> LocalData;
+	TArray<FTimelineSaveList> SaveVersionLists;
 
-	UPROPERTY()
 	FTimelineAnchor CurrentAnchor;
 };

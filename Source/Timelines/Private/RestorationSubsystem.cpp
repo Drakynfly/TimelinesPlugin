@@ -9,54 +9,59 @@ void URestorationSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
 
-	LocalData = Collection.InitializeDependency<UFaerieLocalDataSubsystem>();
-	Backend = LocalData->GetService(Faerie::SaveData::DefaultService);
-	Backend->GetOnPreSlotSavedEvent().AddUObject(this, &ThisClass::OnPreSaveExecRun);
-	Backend->GetOnSaveCompletedEvent().AddUObject(this, &ThisClass::OnSaveExecFinished);
-	Backend->GetOnLoadCompletedEvent().AddUObject(this, &ThisClass::OnLoadExecFinished);
+	auto&& LocalData = Collection.InitializeDependency<UFaerieLocalDataSubsystem>();
+	LocalData->SetOnServiceInit(Faerie::SaveData::DefaultService,
+		UFaerieLocalDataSubsystem::FOnSubsystemInit::CreateWeakLambda(this,
+			[this](USaveSystemInteropBase* Service)
+			{
+				Backend = Service;
+				Backend->GetOnPreSlotSavedEvent().AddUObject(this, &ThisClass::OnPreSaveExecRun);
+				Backend->GetOnSaveCompletedEvent().AddUObject(this, &ThisClass::OnSaveExecFinished);
+				Backend->GetOnLoadCompletedEvent().AddUObject(this, &ThisClass::OnLoadExecFinished);
+
+				// Cache all existing save slots and collate them into version lists.
+
+				// This returns the slots already ordered by save date. So when we make version lists they will already be in the
+				// correct order without us having to do anything.
+				TArray<FString> SaveSlots = Backend->GetAllSlotsSorted();
+
+				TMap<FTimelineGameKey, TArray<FString>> SaveInfoMap;
+
+				for (const FString& SaveSlot : SaveSlots)
+				{
+					auto&& Anchor = Backend->GetFragmentData<FTimelineAnchor>(SaveSlot);
+					if (!Anchor.IsValid())
+					{
+						continue;
+					}
+
+					if (const FTimelineGameKey GameKey = Anchor.Get<const FTimelineAnchor>().Game;
+						GameKey.IsValid())
+					{
+						TArray<FString>& SaveList = SaveInfoMap.FindOrAdd(GameKey);
+						SaveList.Add(SaveSlot);
+					}
+					else
+					{
+						UE_LOG(LogRestorationSubsystem, Error, TEXT("GameKey is invalid for save slot %s!"), *SaveSlot)
+					}
+				}
+
+				for (auto&& SlotNameList : SaveInfoMap)
+				{
+					FTimelineSaveList NewList;
+					NewList.GameKey = SlotNameList.Key;
+
+					for (const FString& SlotName : SlotNameList.Value)
+					{
+						NewList.Versions.Add({SlotName});
+					}
+
+					SaveVersionLists.Add(NewList);
+				}
+			}));
 
 	UE_LOG(LogRestorationSubsystem, Log, TEXT("Restoration Subsystem Initialized"));
-
-	// Cache all existing save slots and collate them into version lists.
-
-	// This returns the slots already ordered by save date. So when we make version lists they will already be in the
-	// correct order without us having to do anything.
-	TArray<FString> SaveSlots = Backend->GetAllSlotsSorted();
-
-	TMap<FTimelineGameKey, TArray<FString>> SaveInfoMap;
-
-	for (const FString& SaveSlot : SaveSlots)
-	{
-		auto&& Anchor = Backend->GetFragmentData<FTimelineAnchor>(SaveSlot);
-		if (!Anchor.IsValid())
-		{
-			continue;
-		}
-
-		if (const FTimelineGameKey GameKey = Anchor.Get<const FTimelineAnchor>().Game;
-			GameKey.IsValid())
-		{
-			TArray<FString>& SaveList = SaveInfoMap.FindOrAdd(GameKey);
-			SaveList.Add(SaveSlot);
-		}
-		else
-		{
-			UE_LOG(LogRestorationSubsystem, Error, TEXT("GameKey is invalid for save slot %s!"), *SaveSlot)
-		}
-	}
-
-	for (auto&& SlotNameList : SaveInfoMap)
-	{
-		FTimelineSaveList NewList;
-		NewList.GameKey = SlotNameList.Key;
-
-		for (const FString& SlotName : SlotNameList.Value)
-		{
-			NewList.Versions.Add({SlotName});
-		}
-
-		SaveVersionLists.Add(NewList);
-	}
 }
 
 void URestorationSubsystem::GetAllTimelines(TArray<FTimelineGameKey>& GameKeys)
@@ -69,18 +74,18 @@ void URestorationSubsystem::GetAllTimelines(TArray<FTimelineGameKey>& GameKeys)
 	}
 }
 
-void URestorationSubsystem::GetMostRecentVersionOfGame(const FTimelineGameKey& GameKey, FTimelineAnchor& OutSaveData)
+void URestorationSubsystem::GetMostRecentVersionOfGame(const FTimelineGameKey& GameKey, FTimelineAnchor& Anchor)
 {
 	if (const FTimelineSaveList* VersionList = SaveVersionLists.FindByKey(GameKey))
 	{
-		OutSaveData.Game = GameKey;
-		OutSaveData.Point = VersionList->MostRecent();
+		Anchor.Game = GameKey;
+		Anchor.Point = VersionList->MostRecent();
 	}
 }
 
-void URestorationSubsystem::GetAllVersionsOfGame(const FTimelineGameKey& GameKey, TArray<FTimelineAnchor>& OutSaveData)
+void URestorationSubsystem::GetAllVersionsOfGame(const FTimelineGameKey& GameKey, TArray<FTimelineAnchor>& Anchors)
 {
-	OutSaveData.Empty();
+	Anchors.Empty();
 
 	if (!GameKey.IsValid())
 	{
@@ -93,7 +98,7 @@ void URestorationSubsystem::GetAllVersionsOfGame(const FTimelineGameKey& GameKey
 		{
 			for (auto Point : VersionList.Versions)
 			{
-				OutSaveData.Add({GameKey, Point});
+				Anchors.Add({GameKey, Point});
 			}
 			break;
 		}
