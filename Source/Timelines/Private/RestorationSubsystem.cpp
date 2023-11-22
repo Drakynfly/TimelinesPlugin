@@ -242,7 +242,7 @@ void URestorationSubsystem::DeletePoint(const FTimelinePointKey& Point)
 	// If we removed the last version, the remove the whole list as nothing exists of this game anymore.
 	if (VersionList->Versions.IsEmpty())
 	{
-		SaveVersionLists.Remove(*VersionList);
+		SaveVersionLists.Remove(FTimelineSaveList(VersionList->GameKey));
 	}
 
 	OnTimelinePointRemoved.Broadcast(VersionList->GameKey);
@@ -250,22 +250,19 @@ void URestorationSubsystem::DeletePoint(const FTimelinePointKey& Point)
 
 void URestorationSubsystem::OnPreSaveExecRun(const FStringView Slot)
 {
-	FTimelineAnchor NewAnchor;
-	NewAnchor.Point = FTimelinePointKey(FString(Slot));
-
-	if (CurrentAnchor.IsValid())
-	{
-		NewAnchor.Game = CurrentAnchor.Game;
-	}
-	else
-	{
-		NewAnchor.Game = FTimelineGameKey{FTimelineKey::NewKey()};
-	}
-
 	Backend->EditFragmentData<FTimelineAnchor>(Slot,
-		[NewAnchor](FTimelineAnchor& Anchor)
+		[this, Slot](FTimelineAnchor& Anchor)
 		{
-			Anchor = NewAnchor;
+			Anchor.Point = FTimelinePointKey(FString(Slot));
+
+			if (CurrentAnchor.IsValid())
+			{
+				Anchor.Game = CurrentAnchor.Game;
+			}
+			else
+			{
+				Anchor.Game = FTimelineGameKey{FTimelineKey::NewKey()};
+			}
 		});
 }
 
