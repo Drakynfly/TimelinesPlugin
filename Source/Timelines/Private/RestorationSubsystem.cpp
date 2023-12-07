@@ -92,15 +92,11 @@ void URestorationSubsystem::GetAllVersionsOfGame(const FTimelineGameKey& GameKey
 		return;
 	}
 
-	for (const FTimelineSaveList& VersionList : SaveVersionLists)
+	if (auto* VersionList = SaveVersionLists.FindByKey(GameKey))
 	{
-		if (VersionList.GameKey == GameKey)
+		for (auto&& Point : VersionList->Versions)
 		{
-			for (auto Point : VersionList.Versions)
-			{
-				Anchors.Add({GameKey, Point});
-			}
-			break;
+			Anchors.Add({GameKey, Point});
 		}
 	}
 }
@@ -290,7 +286,7 @@ void URestorationSubsystem::OnSaveExecFinished(const FStringView Slot)
 	else
 	{
 		CurrentAnchor.Game = Anchor.Game;
-		VersionList = &SaveVersionLists.Add_GetRef({CurrentAnchor.Game});
+		VersionList = &SaveVersionLists.EmplaceAt_GetRef(0, CurrentAnchor.Game);
 	}
 
 	check(VersionList);

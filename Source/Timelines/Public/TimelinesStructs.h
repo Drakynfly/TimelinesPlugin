@@ -124,16 +124,11 @@ struct TIMELINES_API FTimelineAnchor : public FFaerieSaveSlotInfoFragment
 	}
 };
 
-USTRUCT()
 struct TIMELINES_API FTimelineSaveList
 {
-	GENERATED_BODY()
-
-	UPROPERTY()
 	FTimelineGameKey GameKey;
 
 	// List of save versions. Stored chronologically from end, so the newest is at [0]
-	UPROPERTY()
 	TArray<FTimelinePointKey> Versions;
 
 	FTimelinePointKey MostRecent() const
