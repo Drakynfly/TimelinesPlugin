@@ -15,7 +15,6 @@ public class Timelines : ModuleRules
 				"AIModule",
 				"UMG",
 				"DeveloperSettings",
-				"StructUtils",
 				"FaerieSaveData"
 			});
 
