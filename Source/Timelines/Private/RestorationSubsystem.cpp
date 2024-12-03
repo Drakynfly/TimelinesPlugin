@@ -35,7 +35,7 @@ void URestorationSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 						continue;
 					}
 
-					if (const FTimelineGameKey GameKey = Anchor.Get<const FTimelineAnchor>().Game;
+					if (const FTimelineGameKey GameKey = Anchor.Get().Game;
 						GameKey.IsValid())
 					{
 						TArray<FString>& SaveList = SaveInfoMap.FindOrAdd(GameKey);
@@ -271,7 +271,7 @@ void URestorationSubsystem::OnSaveExecFinished(const FStringView Slot)
 		return;
 	}
 
-	const FTimelineAnchor& Anchor = AnchorFragment.Get<const FTimelineAnchor>();
+	const FTimelineAnchor& Anchor = AnchorFragment.Get();
 
 	// Record this save in the version list, and set it as the currently active save.
 
@@ -305,5 +305,5 @@ void URestorationSubsystem::OnLoadExecFinished(const FStringView Slot)
 	}
 
 	// The loaded game is our new anchor.
-	CurrentAnchor = AnchorFragment.Get<const FTimelineAnchor>();
+	CurrentAnchor = AnchorFragment.Get();
 }
